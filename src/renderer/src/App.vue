@@ -4,7 +4,7 @@
     <div class="main-layout">
       <SideBar />
       <main class="content-area">
-        待开发
+        <router-view />
       </main>
     </div>
   </div>
