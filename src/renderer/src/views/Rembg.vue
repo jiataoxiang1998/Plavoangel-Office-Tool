@@ -37,6 +37,64 @@
     </div>
 
     <div class="action-section" v-if="files.length">
+      <div class="options-panel">
+        <h4>高级参数</h4>
+        <div class="options-grid">
+          <div class="option-item">
+            <input type="checkbox" v-model="alphaMatting" />
+            <span>Alpha Matting</span>
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip1">启用后可获得更干净的边缘，适合头发、毛绒等精细边缘</div>
+            </div>
+          </div>
+          <label class="option-item" v-if="alphaMatting">
+            前景阈值
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip2">决定哪些像素被识别为前景，值越大越激进。推荐 240-270</div>
+            </div>
+            :
+            <input type="number" v-model.number="alphaMattingForegroundThreshold" min="0" max="255" class="option-input" />
+          </label>
+          <label class="option-item" v-if="alphaMatting">
+            背景阈值
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip3">决定哪些像素被识别为背景，值越小越激进。推荐 10-30</div>
+            </div>
+            :
+            <input type="number" v-model.number="alphaMattingBackgroundThreshold" min="0" max="255" class="option-input" />
+          </label>
+          <label class="option-item" v-if="alphaMatting">
+            侵蚀大小
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip4">在边缘处向内侵蚀的像素数，可消除边缘杂边。推荐 3-10</div>
+            </div>
+            :
+            <input type="number" v-model.number="alphaMattingErodeSize" min="0" max="50" class="option-input" />
+          </label>
+          <div class="option-item">
+            <input type="checkbox" v-model="postProcessMask" />
+            <span>后处理 Mask</span>
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip5">对生成的mask进行后处理，使边缘更平滑</div>
+            </div>
+          </div>
+          <label class="option-item">
+            边缘留白
+            <div class="help-tip" @mouseenter="showTooltip($event)" @mouseleave="hideTooltip">
+              <span class="help-icon">?</span>
+              <div class="help-content" ref="tooltip6">裁剪图片时四周保留的间隙像素，防止边缘被切掉</div>
+            </div>
+            :
+            <input type="number" v-model.number="padding" min="0" max="100" class="option-input" />
+            像素
+          </label>
+        </div>
+      </div>
       <button class="btn-primary" @click="processImages" :disabled="processing">
         {{ processing ? '处理中...' : '开始处理' }}
       </button>
@@ -71,6 +129,40 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+const tooltip1 = ref<HTMLElement>()
+const tooltip2 = ref<HTMLElement>()
+const tooltip3 = ref<HTMLElement>()
+const tooltip4 = ref<HTMLElement>()
+const tooltip5 = ref<HTMLElement>()
+const tooltip6 = ref<HTMLElement>()
+
+const showTooltip = (event: MouseEvent) => {
+  const icon = event.target as HTMLElement
+  const tip = icon.parentElement?.querySelector('.help-content') as HTMLElement
+  if (tip) {
+    const rect = icon.getBoundingClientRect()
+    const tipWidth = 200
+    const tipHeight = 40
+    let left = rect.right + 10
+    let top = rect.top
+
+    if (left + tipWidth > window.innerWidth) {
+      left = rect.left - tipWidth - 10
+    }
+    if (top + tipHeight > window.innerHeight) {
+      top = window.innerHeight - tipHeight - 10
+    }
+    if (top < 0) {
+      top = 10
+    }
+
+    tip.style.left = left + 'px'
+    tip.style.top = top + 'px'
+  }
+}
+
+const hideTooltip = () => {}
+
 const previewIndex = ref(-1)
 const previewIsResult = ref(false)
 const previewUrl = ref('')
@@ -95,6 +187,12 @@ const processing = ref(false)
 const progress = ref(0)
 const current = ref(0)
 const total = ref(0)
+const padding = ref(20)
+const alphaMatting = ref(true)
+const alphaMattingForegroundThreshold = ref(260)
+const alphaMattingBackgroundThreshold = ref(20)
+const alphaMattingErodeSize = ref(5)
+const postProcessMask = ref(true)
 const thumbnails = ref<Record<string, string>>({})
 const resultThumbnails = ref<Record<string, string>>({})
 
@@ -198,7 +296,12 @@ const processImages = async () => {
     const result = await window.electronAPI.rembgBatch({
       input_paths: inputPaths,
       output_dir: outputDir,
-      padding: 20
+      padding: padding.value,
+      alphaMatting: alphaMatting.value,
+      alphaMattingForegroundThreshold: alphaMattingForegroundThreshold.value,
+      alphaMattingBackgroundThreshold: alphaMattingBackgroundThreshold.value,
+      alphaMattingErodeSize: alphaMattingErodeSize.value,
+      postProcessMask: postProcessMask.value
     })
     
     if (result.success) {
@@ -383,6 +486,113 @@ const getBasename = (path: string) => {
 .action-section {
   margin: 24px 0;
   text-align: center;
+}
+
+.options-panel {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: left;
+  
+  h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  
+  label {
+    cursor: pointer;
+    user-select: none;
+  }
+}
+
+.option-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: center;
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+}
+
+.option-tip {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.help-tip {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+  
+  &:hover {
+    background: var(--primary);
+    color: white;
+  }
+}
+
+.help-content {
+  position: fixed;
+  padding: 8px 12px;
+  background: var(--text-primary);
+  color: var(--bg-main);
+  font-size: 12px;
+  font-weight: normal;
+  white-space: normal;
+  max-width: 200px;
+  border-radius: 4px;
+  z-index: 10000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.help-tip:hover .help-content {
+  opacity: 1;
 }
 
 .progress-section {

@@ -17,7 +17,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log('rembgProcess called', params)
     return ipcRenderer.invoke('rembg:process', params)
   },
-  rembgBatch: (params: { input_paths: string[]; output_dir: string; padding?: number }) => {
+  rembgBatch: (params: {
+    input_paths: string[];
+    output_dir: string;
+    padding?: number;
+    alphaMatting?: boolean;
+    alphaMattingForegroundThreshold?: number;
+    alphaMattingBackgroundThreshold?: number;
+    alphaMattingErodeSize?: number;
+    postProcessMask?: boolean;
+  }) => {
     console.log('rembgBatch called', params)
     return ipcRenderer.invoke('rembg:batch', params)
   },

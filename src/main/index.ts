@@ -84,25 +84,54 @@ ipcMain.handle('rembg:process', async (_, params: { input_path: string; output_p
   } catch (e) { return { success: false, error: (e as Error).message } }
 })
 
-ipcMain.handle('rembg:batch', async (event, params: { input_paths: string[]; output_dir: string }) => {
+ipcMain.handle('rembg:batch', async (event, params: {
+  input_paths: string[];
+  output_dir: string;
+  padding?: number;
+  alphaMatting?: boolean;
+  alphaMattingForegroundThreshold?: number;
+  alphaMattingBackgroundThreshold?: number;
+  alphaMattingErodeSize?: number;
+  postProcessMask?: boolean;
+}) => {
   try {
-    const { input_paths, output_dir } = params
+    const {
+      input_paths,
+      output_dir,
+      padding = 20,
+      alphaMatting = true,
+      alphaMattingForegroundThreshold = 260,
+      alphaMattingBackgroundThreshold = 20,
+      alphaMattingErodeSize = 5,
+      postProcessMask = true
+    } = params
+
     console.log('Output dir:', output_dir)
     console.log('Input paths:', input_paths)
     if (!existsSync(output_dir)) mkdirSync(output_dir, { recursive: true })
-    
+
     const pythonExe = join(__dirname, '../../python/python.exe')
-    const handlerPy = join(__dirname, '../../python/rembg_handler.py')
-    
+    const handlerPy = join(__dirname, '../../python_scripts/rembg_handler.py')
+
     const results: string[] = []
     for (let i = 0; i < input_paths.length; i++) {
       const input_path = input_paths[i]
       const basename = input_path.split(/[\\/]/).pop() || ''
       const nameWithoutExt = basename.replace(/\.[^.]+$/, '')
       const output_path = join(output_dir, nameWithoutExt + '.png')
-      
+
+      const args = [
+        handlerPy, '-u', input_path, '-o', output_path,
+        '--padding', String(padding),
+        '--alpha-matting', alphaMatting ? '1' : '0',
+        '--alpha-matting-foreground-threshold', String(alphaMattingForegroundThreshold),
+        '--alpha-matting-background-threshold', String(alphaMattingBackgroundThreshold),
+        '--alpha-matting-erode-size', String(alphaMattingErodeSize),
+        '--post-process-mask', postProcessMask ? '1' : '0'
+      ]
+
       await new Promise<void>((resolve, reject) => {
-        const py = spawn(pythonExe, [handlerPy, '-u', input_path, '-o', output_path])
+        const py = spawn(pythonExe, args)
         let stderr = ''
         let stdout = ''
         py.stderr.on('data', (d) => { stderr += d.toString() })
@@ -114,13 +143,13 @@ ipcMain.handle('rembg:batch', async (event, params: { input_paths: string[]; out
         })
         py.on('error', reject)
       })
-      
+
       event.sender.send('rembg:progress', { current: i + 1, total: input_paths.length })
       console.log('Completed:', i + 1, '/', input_paths.length)
       results.push(output_path)
     }
     return { success: true, paths: results }
-  } catch (e) { 
-    return { success: false, error: String(e) } 
+  } catch (e) {
+    return { success: false, error: String(e) }
   }
 })

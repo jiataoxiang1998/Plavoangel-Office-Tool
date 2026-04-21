@@ -12,6 +12,8 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
+    "@imgly/background-removal-data": "^1.4.5",
     "archiver": "^7.0.1",
     "core-util-is": "^1.0.3",
     "exceljs": "^4.4.0",
