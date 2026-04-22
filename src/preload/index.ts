@@ -12,7 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (filePath: string, data: ArrayBuffer) => ipcRenderer.invoke('fs:writeFile', filePath, data),
   readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
   readFileBase64: (filePath: string) => ipcRenderer.invoke('fs:readFileBase64', filePath),
-  generatePackingList: (params: any) => ipcRenderer.invoke('pi-to-pl:generate', params),
   rembgProcess: (params: { input_path: string; output_path: string; padding?: number }) => {
     console.log('rembgProcess called', params)
     return ipcRenderer.invoke('rembg:process', params)
@@ -45,5 +44,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeProductProgressListener: () => {
     ipcRenderer.removeAllListeners('product:progress')
-  }
+  },
+  selectPiFiles: () => ipcRenderer.invoke('pi-to-pl:selectFiles'),
+  selectSavePath: () => ipcRenderer.invoke('pi-to-pl:selectSavePath'),
+  validateContract: (filePath: string) => ipcRenderer.invoke('pi-to-pl:validateContract', filePath),
+  addContract: (filePath: string) => ipcRenderer.invoke('pi-to-pl:addContract', filePath),
+  removeContract: (filePath: string) => ipcRenderer.invoke('pi-to-pl:removeContract', filePath),
+  getContractArticles: (filePath: string) => ipcRenderer.invoke('pi-to-pl:getContractArticles', filePath),
+  generatePackingList: (outputPath: string, selectedArticles: string[]) => ipcRenderer.invoke('pi-to-pl:generatePackingList', outputPath, selectedArticles)
 })

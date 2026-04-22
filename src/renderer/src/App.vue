@@ -17,10 +17,12 @@ import TitleBar from '@/components/TitleBar.vue'
 import SideBar from '@/components/SideBar.vue'
 import Product from '@/views/Product.vue'
 import Rembg from '@/views/Rembg.vue'
+import PiToPl from '@/views/PiToPl.vue'
 
 const route = useRoute()
 const currentView = computed(() => {
   if (route.path === '/product-image') return Product
+  if (route.path === '/pi-to-pl') return PiToPl
   return Rembg
 })
 </script>

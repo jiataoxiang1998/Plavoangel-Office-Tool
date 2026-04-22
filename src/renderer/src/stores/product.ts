@@ -30,7 +30,12 @@ export const useProductStore = defineStore('product', {
     rembgAlphaMattingBackgroundThreshold: 20,
     rembgAlphaMattingErodeSize: 5,
     rembgPostProcessMask: true,
-    rembgPadding: 20
+    rembgPadding: 20,
+    piToPlContractFiles: [] as string[],
+    piToPlArticleCounts: {} as Record<string, number>,
+    piToPlArticles: [] as string[],
+    piToPlSelectedArticles: [] as string[],
+    piToPlOutputPath: ''
   }),
 
   getters: {
@@ -111,6 +116,28 @@ export const useProductStore = defineStore('product', {
         alphaMattingErodeSize: this.rembgAlphaMattingErodeSize,
         postProcessMask: this.rembgPostProcessMask,
         padding: this.rembgPadding
+      }
+    },
+    setPiToPlState(data: {
+      contractFiles: string[],
+      articleCounts: Record<string, number>,
+      articles: string[],
+      selectedArticles: string[],
+      outputPath: string
+    }) {
+      this.piToPlContractFiles = data.contractFiles
+      this.piToPlArticleCounts = data.articleCounts
+      this.piToPlArticles = data.articles
+      this.piToPlSelectedArticles = data.selectedArticles
+      this.piToPlOutputPath = data.outputPath
+    },
+    getPiToPlState() {
+      return {
+        contractFiles: this.piToPlContractFiles,
+        articleCounts: this.piToPlArticleCounts,
+        articles: this.piToPlArticles,
+        selectedArticles: this.piToPlSelectedArticles,
+        outputPath: this.piToPlOutputPath
       }
     },
     startProcessing() {
