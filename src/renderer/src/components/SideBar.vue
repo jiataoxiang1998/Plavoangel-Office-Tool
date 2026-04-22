@@ -90,7 +90,7 @@ const store = useProductStore()
 const isSidebarCollapsed = ref(false)
 const isGroupCollapsed = ref(false)
 
-const isLocked = computed(() => store.locked)
+const isLocked = computed(() => store.locked || store.rembgLocked)
 
 const menuItems = [
   {
@@ -124,7 +124,10 @@ const toggleGroup = () => {
 }
 
 const navigateTo = (path: string) => {
-  if (isLocked.value && path !== '/product-image') {
+  if (store.rembgLocked && path !== '/rembg') {
+    return
+  }
+  if (store.locked && path !== '/product-image') {
     return
   }
   router.push(path)

@@ -30,8 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log('rembgBatch called', params)
     return ipcRenderer.invoke('rembg:batch', params)
   },
-  onRembgProgress: (callback: (data: { current: number; total: number }) => void) => {
+  onRembgProgress: (callback: (data: { current: number; total: number; path?: string }) => void) => {
     ipcRenderer.on('rembg:progress', (_, data) => callback(data))
+  },
+  removeRembgProgressListener: () => {
+    ipcRenderer.removeAllListeners('rembg:progress')
   },
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   listProductFolders: (inputDir: string) => ipcRenderer.invoke('product:listFolders', inputDir),

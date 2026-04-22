@@ -129,6 +129,8 @@ ipcMain.handle('rembg:batch', async (event, params: {
     console.log('scriptsDir:', scriptsDir)
 
     const results: string[] = []
+    console.log('Starting batch process for', input_paths.length, 'files')
+    console.log('Output dir:', output_dir)
     for (let i = 0; i < input_paths.length; i++) {
       const input_path = input_paths[i]
       const basename = input_path.split(/[\\/]/).pop() || ''
@@ -152,17 +154,17 @@ ipcMain.handle('rembg:batch', async (event, params: {
         py.stderr.on('data', (d) => { stderr += d.toString() })
         py.stdout.on('data', (d) => { stdout += d.toString() })
         py.on('close', (code) => {
-          console.log('Python stdout:', stdout, 'stderr:', stderr, 'code:', code)
           if (code === 0) resolve()
           else reject(new Error(stderr || '处理失败'))
         })
         py.on('error', reject)
       })
 
-      event.sender.send('rembg:progress', { current: i + 1, total: input_paths.length })
-      console.log('Completed:', i + 1, '/', input_paths.length)
+      event.sender.send('rembg:progress', { current: i + 1, total: input_paths.length, path: output_path })
+      console.log('Progress sent:', i + 1, output_path)
       results.push(output_path)
     }
+    console.log('Batch process complete, results:', results.length)
     return { success: true, paths: results }
   } catch (e) {
     return { success: false, error: String(e) }

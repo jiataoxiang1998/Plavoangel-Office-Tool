@@ -49,7 +49,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn-outline" @click="onReset">重置</button>
+      <button class="btn-outline" @click="onReset" :disabled="store.processing">重置</button>
       <button class="btn-primary" @click="onProcess" :disabled="!canProcess">
         {{ store.processing ? '处理中...' : (store.doneNames.length >= store.folderItems.length && store.folderItems.length > 0 ? '已完成' : '开始生成') }}
       </button>
