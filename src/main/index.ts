@@ -61,14 +61,21 @@ ipcMain.handle('fs:readDir', async (_, dirPath: string) => {
 
 ipcMain.handle('fs:readFileBase64', async (_, filePath: string) => {
   try {
+    console.log('fs:readFileBase64 called:', filePath)
     const data = readFileSync(filePath)
+    console.log('fs:readFileBase64 data length:', data.length)
     const ext = filePath.split('.').pop()?.toLowerCase() || 'png'
     let mime = 'image/png'
     if (ext === 'jpg' || ext === 'jpeg') mime = 'image/jpeg'
     else if (ext === 'bmp') mime = 'image/bmp'
     const base64 = data.toString('base64')
-    return { success: true, data: `data:${mime};base64,${base64}` }
-  } catch (e) { return { success: false, error: (e as Error).message } }
+    const result = `data:${mime};base64,${base64}`
+    console.log('fs:readFileBase64 result length:', result.length)
+    return { success: true, data: result }
+  } catch (e) {
+    console.error('fs:readFileBase64 error:', e)
+    return { success: false, error: (e as Error).message }
+  }
 })
 
 ipcMain.handle('rembg:process', async (_, params: { input_path: string; output_path: string }) => {
@@ -110,8 +117,16 @@ ipcMain.handle('rembg:batch', async (event, params: {
     console.log('Input paths:', input_paths)
     if (!existsSync(output_dir)) mkdirSync(output_dir, { recursive: true })
 
-    const pythonExe = join(__dirname, '../../python/python.exe')
-    const handlerPy = join(__dirname, '../../python_scripts/rembg_handler.py')
+    const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+    const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
+    const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
+    
+    const pythonExe = join(pythonDir, 'python.exe')
+    const handlerPy = join(scriptsDir, 'rembg_handler.py')
+
+    console.log('isDev:', isDev)
+    console.log('pythonDir:', pythonDir)
+    console.log('scriptsDir:', scriptsDir)
 
     const results: string[] = []
     for (let i = 0; i < input_paths.length; i++) {
@@ -149,6 +164,105 @@ ipcMain.handle('rembg:batch', async (event, params: {
       results.push(output_path)
     }
     return { success: true, paths: results }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
+
+ipcMain.handle('dialog:selectDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openDirectory']
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle('product:listFolders', async (_, inputDir: string) => {
+  try {
+    const entries = readdirSync(inputDir)
+    const folders = entries.filter(name => {
+      const p = join(inputDir, name)
+      return statSync(p).isDirectory()
+    })
+    return folders
+  } catch (e) {
+    return []
+  }
+})
+
+ipcMain.handle('product:getTemplatePath', async () => {
+  const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+  if (isDev) {
+    return join(__dirname, '../../assets', 'product_template.jpg')
+  }
+  return join(process.resourcesPath, 'assets', 'product_template.jpg')
+})
+
+ipcMain.handle('product:generate', async (event, params: { product_folder: string; output_dir: string; template_path: string }) => {
+  try {
+    const { product_folder, output_dir, template_path } = params
+
+    console.log('product:generate called')
+    console.log('product_folder:', product_folder)
+    console.log('output_dir:', output_dir)
+    console.log('template_path:', template_path)
+
+    const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+    const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
+    const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
+
+    const pythonExe = join(pythonDir, 'python.exe')
+    const handlerPy = join(scriptsDir, 'product_handler.py')
+
+    console.log('isDev:', isDev)
+    console.log('pythonExe exists:', existsSync(pythonExe))
+    console.log('handlerPy exists:', existsSync(handlerPy))
+    console.log('template_path exists:', existsSync(template_path))
+
+    const name = product_folder.split(/[\\/]/).pop() || ''
+    const outputPath = join(output_dir, `${name}.jpg`)
+    console.log('expected output path:', outputPath)
+
+    if (!existsSync(pythonExe)) {
+      return { success: false, error: `Python not found: ${pythonExe}` }
+    }
+    if (!existsSync(handlerPy)) {
+      return { success: false, error: `Handler not found: ${handlerPy}` }
+    }
+    if (!existsSync(template_path)) {
+      return { success: false, error: `Template not found: ${template_path}` }
+    }
+
+    const result = await new Promise<{code:number, stdout:string, stderr:string, path:string}>((resolve, reject) => {
+      const py = spawn(pythonExe, [handlerPy, '-i', product_folder, '-o', output_dir, '-t', template_path])
+      let stderr = ''
+      let stdout = ''
+      py.stderr.on('data', (d) => { stderr += d.toString() })
+      py.stdout.on('data', (d) => { stdout += d.toString() })
+      py.on('close', (code) => {
+        console.log('Product gen stdout:', stdout)
+        console.log('Product gen stderr:', stderr)
+        console.log('code:', code)
+        const match = stdout.match(/OK:([^\r\n]+)/)
+        const pathFromPy = match ? match[1].trim() : outputPath
+        console.log('path from python:', pathFromPy)
+        resolve({ code: code || 0, stdout, stderr, path: pathFromPy })
+      })
+      py.on('error', reject)
+    })
+
+    if (result.code !== 0) {
+      return { success: false, error: result.stderr || '处理失败' }
+    }
+
+    console.log('outputPath exists:', existsSync(result.path))
+    if (!existsSync(result.path)) {
+      console.log('WARNING: output file not found, using fallback')
+      return { success: true, path: outputPath }
+    }
+
+    console.log('returning path:', result.path)
+    return { success: true, path: result.path }
   } catch (e) {
     return { success: false, error: String(e) }
   }

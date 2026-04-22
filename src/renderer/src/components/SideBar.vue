@@ -12,20 +12,24 @@
     <div class="sidebar-divider" v-if="!isSidebarCollapsed"></div>
 
     <nav class="sidebar-nav" v-show="!isSidebarCollapsed && !isGroupCollapsed">
-      <router-link
+      <div
         v-for="item in menuItems"
         :key="item.path"
-        :to="item.path"
         class="nav-item"
-        :class="{ active: $route.path === item.path }"
+        :class="{ active: $route.path === item.path, disabled: isLocked && $route.path !== item.path }"
+        @click="navigateTo(item.path)"
       >
         <span class="nav-icon" v-html="item.icon"></span>
         <span class="nav-text">{{ item.name }}</span>
-      </router-link>
+      </div>
     </nav>
 
     <div class="sidebar-footer" v-if="!isSidebarCollapsed">
-      <router-link to="/help" class="nav-item" :class="{ active: $route.path === '/help' }">
+      <div
+        class="nav-item"
+        :class="{ active: $route.path === '/help', disabled: isLocked && $route.path !== '/help' }"
+        @click="navigateTo('/help')"
+      >
         <span class="nav-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -34,7 +38,7 @@
           </svg>
         </span>
         <span class="nav-text">帮助</span>
-      </router-link>
+      </div>
     </div>
 
     <div class="toggle-wrapper">
@@ -47,17 +51,22 @@
     </div>
 
     <div class="sidebar-collapsed-view" v-if="isSidebarCollapsed">
-      <router-link
+      <div
         v-for="item in menuItems"
         :key="item.path"
-        :to="item.path"
         class="nav-item-collapsed"
-        :class="{ active: $route.path === item.path }"
+        :class="{ active: $route.path === item.path, disabled: isLocked && $route.path !== item.path }"
         :title="item.name"
+        @click="navigateTo(item.path)"
       >
         <span class="nav-icon" v-html="item.icon"></span>
-      </router-link>
-      <router-link to="/help" class="nav-item-collapsed" :class="{ active: $route.path === '/help' }" title="帮助">
+      </div>
+      <div
+        class="nav-item-collapsed"
+        :class="{ active: $route.path === '/help', disabled: isLocked && $route.path !== '/help' }"
+        title="帮助"
+        @click="navigateTo('/help')"
+      >
         <span class="nav-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -65,16 +74,23 @@
             <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
         </span>
-      </router-link>
+      </div>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useProductStore } from '@/stores/product'
+
+const router = useRouter()
+const store = useProductStore()
 
 const isSidebarCollapsed = ref(false)
 const isGroupCollapsed = ref(false)
+
+const isLocked = computed(() => store.locked)
 
 const menuItems = [
   {
@@ -106,6 +122,13 @@ const toggleSidebar = () => {
 const toggleGroup = () => {
   isGroupCollapsed.value = !isGroupCollapsed.value
 }
+
+const navigateTo = (path: string) => {
+  if (isLocked.value && path !== '/product-image') {
+    return
+  }
+  router.push(path)
+}
 </script>
 
 <style scoped lang="scss">
@@ -118,6 +141,7 @@ const toggleGroup = () => {
   transition: width var(--transition-normal);
   overflow: hidden;
   position: relative;
+  z-index: 100;
 
   &.collapsed {
     width: var(--sidebar-collapsed-width);
@@ -222,6 +246,7 @@ const toggleGroup = () => {
   text-decoration: none;
   transition: all var(--transition-fast);
   margin-bottom: 4px;
+  cursor: pointer;
 
   &:hover {
     background: var(--bg-hover);
@@ -231,6 +256,12 @@ const toggleGroup = () => {
   &.active {
     background: var(--primary-light);
     color: var(--primary);
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 
@@ -242,8 +273,8 @@ const toggleGroup = () => {
   justify-content: center;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  text-decoration: none;
   transition: all var(--transition-fast);
+  cursor: pointer;
 
   &:hover {
     background: var(--bg-hover);
@@ -253,6 +284,12 @@ const toggleGroup = () => {
   &.active {
     background: var(--primary-light);
     color: var(--primary);
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 

@@ -35,15 +35,30 @@
     "vue-tsc": "^2.0.6"
   },
   "build": {
-    "appId": "com.officetool.app",
-    "productName": "广州办公软件",
+    "appId": "com.plavoangel.app",
+    "productName": "Plavoangel",
     "directories": {
-      "output": "dist",
+      "output": "release",
       "buildResources": "resources"
     },
     "files": [
       "out/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "python",
+        "to": "python"
+      },
+      {
+        "from": "python_scripts",
+        "to": "python_scripts"
+      },
+      {
+        "from": "assets",
+        "to": "assets"
+      }
     ],
     "win": {
       "target": [
