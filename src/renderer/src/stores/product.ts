@@ -35,7 +35,12 @@ export const useProductStore = defineStore('product', {
     piToPlArticleCounts: {} as Record<string, number>,
     piToPlArticles: [] as string[],
     piToPlSelectedArticles: [] as string[],
-    piToPlOutputPath: ''
+    piToPlOutputPath: '',
+    salesToProductionContractFiles: [] as string[],
+    salesToProductionArticleCounts: {} as Record<string, number>,
+    salesToProductionArticles: [] as string[],
+    salesToProductionSelectedArticles: [] as string[],
+    salesToProductionOutputPath: ''
   }),
 
   getters: {
@@ -138,6 +143,28 @@ export const useProductStore = defineStore('product', {
         articles: this.piToPlArticles,
         selectedArticles: this.piToPlSelectedArticles,
         outputPath: this.piToPlOutputPath
+      }
+    },
+    setSalesToProductionState(data: {
+      contractFiles: string[],
+      articleCounts: Record<string, number>,
+      articles: string[],
+      selectedArticles: string[],
+      outputPath: string
+    }) {
+      this.salesToProductionContractFiles = data.contractFiles
+      this.salesToProductionArticleCounts = data.articleCounts
+      this.salesToProductionArticles = data.articles
+      this.salesToProductionSelectedArticles = data.selectedArticles
+      this.salesToProductionOutputPath = data.outputPath
+    },
+    getSalesToProductionState() {
+      return {
+        contractFiles: this.salesToProductionContractFiles,
+        articleCounts: this.salesToProductionArticleCounts,
+        articles: this.salesToProductionArticles,
+        selectedArticles: this.salesToProductionSelectedArticles,
+        outputPath: this.salesToProductionOutputPath
       }
     },
     startProcessing() {

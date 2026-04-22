@@ -10,4 +10,5 @@ release4/
 .DS_Store
 python/
 python_scripts/
+**/__pycache__/
 python.zip

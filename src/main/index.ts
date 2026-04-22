@@ -413,3 +413,146 @@ except Exception as e:
     return { success: false, error: String(e) }
   }
 })
+
+const salesToProductionHandler = {
+  contracts: new Map(),
+  selectedArticles: new Set() as Set<string>
+}
+
+ipcMain.handle('sales-to-production:selectFiles', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Excel/CSV', extensions: ['xlsx', 'xls', 'csv'] }]
+  })
+  if (result.canceled) return []
+  return result.filePaths
+})
+
+ipcMain.handle('sales-to-production:selectSavePath', async () => {
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    defaultPath: '生产单.xlsx',
+    filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+  })
+  if (result.canceled || !result.filePath) return null
+  return result.filePath
+})
+
+ipcMain.handle('sales-to-production:validateContract', async (_, filePath: string) => {
+  if (!existsSync(filePath)) return { valid: false, message: '文件不存在' }
+  const ext = filePath.split('.').pop()?.toLowerCase()
+  if (!['xlsx', 'xls', 'csv'].includes(ext || '')) return { valid: false, message: '请选择 Excel 或 CSV 文件' }
+  return { valid: true, message: '' }
+})
+
+ipcMain.handle('sales-to-production:addContract', async (_, filePath: string) => {
+  try {
+    const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+    const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
+    const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
+    const pythonExe = join(pythonDir, 'python.exe')
+    const filePathBase64 = Buffer.from(filePath).toString('base64')
+
+    const result = await new Promise<{code:number, stdout:string, stderr:string, articleNumbers:string[]}>((resolve, reject) => {
+      const stpDir = join(scriptsDir, 'sales_to_production')
+      const py = spawn(pythonExe, ['-c', `
+import sys
+import base64
+sys.path.insert(0, r'${stpDir.replace(/\\/g, '\\\\')}')
+from handler import SalesToProductionHandler
+handler = SalesToProductionHandler()
+file_path = base64.b64decode(r'${filePathBase64}').decode('utf-8')
+success, result = handler.add_contract(file_path)
+if success:
+    print('OK:' + ','.join(result))
+else:
+    print('ERROR:' + str(result))
+`])
+      let stderr = ''
+      let stdout = ''
+      py.stderr.on('data', (d) => { stderr += d.toString() })
+      py.stdout.on('data', (d) => { stdout += d.toString() })
+      py.on('close', (code) => {
+        let articleNumbers: string[] = []
+        const match = stdout.match(/^OK:(.+)$/m)
+        if (match) articleNumbers = match[1].split(',').filter(x => x)
+        resolve({ code: code || 0, stdout, stderr, articleNumbers })
+      })
+      py.on('error', reject)
+    })
+
+    if (result.code === 0 && result.articleNumbers.length > 0) {
+      salesToProductionHandler.contracts.set(filePath, { articles: result.articleNumbers })
+      result.articleNumbers.forEach(a => salesToProductionHandler.selectedArticles.add(a))
+      return { success: true, articleNumbers: result.articleNumbers }
+    }
+    return { success: false, error: result.stderr || '添加失败' }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
+
+ipcMain.handle('sales-to-production:removeContract', async (_, filePath: string) => {
+  if (salesToProductionHandler.contracts.has(filePath)) {
+    const contract = salesToProductionHandler.contracts.get(filePath)
+    if (contract) {
+      contract.articles.forEach(a => salesToProductionHandler.selectedArticles.delete(a))
+    }
+    salesToProductionHandler.contracts.delete(filePath)
+  }
+  return { success: true }
+})
+
+ipcMain.handle('sales-to-production:getContractArticles', async (_, filePath: string) => {
+  if (salesToProductionHandler.contracts.has(filePath)) {
+    const contract = salesToProductionHandler.contracts.get(filePath)
+    return { success: true, articleNumbers: contract?.articles || [] }
+  }
+  return { success: false, articleNumbers: [] }
+})
+
+ipcMain.handle('sales-to-production:generateProductionOrder', async (_, outputPath: string, selectedArticles: string[]) => {
+  try {
+    const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+    const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
+    const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
+    const pythonExe = join(pythonDir, 'python.exe')
+    const outputPathBase64 = Buffer.from(outputPath).toString('base64')
+    const articlesJson = Buffer.from(JSON.stringify(selectedArticles)).toString('base64')
+
+    const result = await new Promise<{code:number, stdout:string, stderr:string}>((resolve, reject) => {
+      const stpDir = join(scriptsDir, 'sales_to_production')
+      const contractPathsJson = Buffer.from(JSON.stringify(Array.from(salesToProductionHandler.contracts.keys()))).toString('base64')
+      const py = spawn(pythonExe, ['-c', `
+import sys
+import json
+import base64
+sys.path.insert(0, r'${stpDir.replace(/\\/g, '\\\\')}')
+from handler import SalesToProductionHandler
+handler = SalesToProductionHandler()
+contract_paths = json.loads(base64.b64decode(r'${contractPathsJson}').decode('utf-8'))
+for path in contract_paths:
+    handler.add_contract(path)
+selected = json.loads(base64.b64decode(r'${articlesJson}').decode('utf-8'))
+output_path = base64.b64decode(r'${outputPathBase64}').decode('utf-8')
+try:
+    result = handler.generate_production_order(output_path, selected)
+    print('OK:' + str(result))
+except Exception as e:
+    print('ERROR:' + str(e))
+`])
+      let stderr = ''
+      let stdout = ''
+      py.stderr.on('data', (d) => { stderr += d.toString() })
+      py.stdout.on('data', (d) => { stdout += d.toString() })
+      py.on('close', (code) => resolve({ code: code || 0, stdout, stderr }))
+      py.on('error', reject)
+    })
+
+    if (result.code === 0 && result.stdout.includes('OK:')) {
+      return { success: true, path: outputPath }
+    }
+    return { success: false, error: result.stderr || '生成失败' }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})

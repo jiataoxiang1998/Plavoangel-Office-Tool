@@ -51,5 +51,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addContract: (filePath: string) => ipcRenderer.invoke('pi-to-pl:addContract', filePath),
   removeContract: (filePath: string) => ipcRenderer.invoke('pi-to-pl:removeContract', filePath),
   getContractArticles: (filePath: string) => ipcRenderer.invoke('pi-to-pl:getContractArticles', filePath),
-  generatePackingList: (outputPath: string, selectedArticles: string[]) => ipcRenderer.invoke('pi-to-pl:generatePackingList', outputPath, selectedArticles)
+  generatePackingList: (outputPath: string, selectedArticles: string[]) => ipcRenderer.invoke('pi-to-pl:generatePackingList', outputPath, selectedArticles),
+  selectSalesFiles: () => ipcRenderer.invoke('sales-to-production:selectFiles'),
+  selectSalesSavePath: () => ipcRenderer.invoke('sales-to-production:selectSavePath'),
+  validateSalesContract: (filePath: string) => ipcRenderer.invoke('sales-to-production:validateContract', filePath),
+  addSalesContract: (filePath: string) => ipcRenderer.invoke('sales-to-production:addContract', filePath),
+  removeSalesContract: (filePath: string) => ipcRenderer.invoke('sales-to-production:removeContract', filePath),
+  getSalesContractArticles: (filePath: string) => ipcRenderer.invoke('sales-to-production:getContractArticles', filePath),
+  generateProductionOrder: (outputPath: string, selectedArticles: string[]) => ipcRenderer.invoke('sales-to-production:generateProductionOrder', outputPath, selectedArticles)
 })

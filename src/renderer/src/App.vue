@@ -18,11 +18,13 @@ import SideBar from '@/components/SideBar.vue'
 import Product from '@/views/Product.vue'
 import Rembg from '@/views/Rembg.vue'
 import PiToPl from '@/views/PiToPl.vue'
+import SalesToProduction from '@/views/SalesToProduction.vue'
 
 const route = useRoute()
 const currentView = computed(() => {
   if (route.path === '/product-image') return Product
   if (route.path === '/pi-to-pl') return PiToPl
+  if (route.path === '/sales-to-production') return SalesToProduction
   return Rembg
 })
 </script>
