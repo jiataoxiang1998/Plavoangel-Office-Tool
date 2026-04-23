@@ -9,6 +9,5 @@ release4/
 *.log
 .DS_Store
 python/
-python_scripts/
 **/__pycache__/
 python.zip

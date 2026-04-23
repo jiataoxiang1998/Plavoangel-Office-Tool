@@ -37,7 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   listProductFolders: (inputDir: string) => ipcRenderer.invoke('product:listFolders', inputDir),
-  getTemplatePath: () => ipcRenderer.invoke('product:getTemplatePath'),
+  getTemplatePath: (template: string) => ipcRenderer.invoke('product:getTemplatePath', template),
   productGen: (params: { product_folder: string; output_dir: string; template_path: string }) => ipcRenderer.invoke('product:generate', params),
   onProductProgress: (callback: (data: { current: number; total: number }) => void) => {
     ipcRenderer.on('product:progress', (_, data) => callback(data))

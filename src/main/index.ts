@@ -192,12 +192,13 @@ ipcMain.handle('product:listFolders', async (_, inputDir: string) => {
   }
 })
 
-ipcMain.handle('product:getTemplatePath', async () => {
+ipcMain.handle('product:getTemplatePath', async (_, template: string = 'plavoangel') => {
   const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+  const templateName = template === 'mornray' ? 'mornray_template.jpg' : 'plavoangel_template.jpg'
   if (isDev) {
-    return join(__dirname, '../../assets', 'product_template.jpg')
+    return join(__dirname, '../../assets', templateName)
   }
-  return join(process.resourcesPath, 'assets', 'product_template.jpg')
+  return join(process.resourcesPath, 'assets', templateName)
 })
 
 ipcMain.handle('product:generate', async (event, params: { product_folder: string; output_dir: string; template_path: string }) => {

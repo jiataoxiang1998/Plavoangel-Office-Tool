@@ -13,6 +13,20 @@
       <span class="path-hint" v-if="store.outputDir">→ {{ store.outputDir }}</span>
     </div>
 
+    <div class="template-select">
+      <span class="label">选择模板:</span>
+      <div class="radio-group">
+        <div class="radio" :class="{ checked: selectedTemplate === 'plavoangel' }" @click="selectedTemplate = 'plavoangel'">
+          <span class="radio-dot"></span>
+          <span class="radio-text">Plavoangel</span>
+        </div>
+        <div class="radio" :class="{ checked: selectedTemplate === 'mornray' }" @click="selectedTemplate = 'mornray'">
+          <span class="radio-dot"></span>
+          <span class="radio-text">Mornray</span>
+        </div>
+      </div>
+    </div>
+
     <div class="lists">
       <div class="panel">
         <div class="panel-header">产品列表 ({{ store.folderItems.length }})</div>
@@ -77,6 +91,7 @@ import { useProductStore } from '@/stores/product'
 const store = useProductStore()
 const leftList = ref<HTMLElement>()
 const rightList = ref<HTMLElement>()
+const selectedTemplate = ref('plavoangel')
 
 const progressPercent = computed(() => store.total ? Math.round(store.current / store.total * 100) : 0)
 const canProcess = computed(() => {
@@ -124,8 +139,7 @@ const onProcess = async () => {
   console.log('inputDir:', store.inputDir)
   console.log('outputDir:', store.outputDir)
   console.log('folderItems:', store.folderItems.length)
-  const tpl = await window.electronAPI.getTemplatePath()
-  console.log('template:', tpl)
+  console.log('template:', selectedTemplate.value)
   store.startProcessing()
 
   let doneCount = store.doneNames.length
@@ -136,6 +150,7 @@ const onProcess = async () => {
     store.setStatusText(item.name)
 
     try {
+      const tpl = await window.electronAPI.getTemplatePath(selectedTemplate.value)
       const r: any = await window.electronAPI.productGen({ product_folder: item.path, output_dir: store.outputDir, template_path: tpl })
       console.log('productGen result:', r)
       if (r.success) {
@@ -193,6 +208,48 @@ const onReset = () => { store.reset() }
   flex-wrap: wrap;
 }
 
+.template-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 6px;
+}
+
+.template-select .label {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.radio-dot {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.radio.checked .radio-dot {
+  border-width: 4px;
+  border-color: var(--primary);
+}
+
 .path-hint {
   font-size: 12px;
   color: var(--text-secondary);
@@ -245,7 +302,7 @@ const onReset = () => { store.reset() }
   border: 1px solid var(--border-color);
   border-radius: 6px;
   overflow-y: auto;
-  height: 400px;
+  height: 300px;
   background: var(--bg-card);
 }
 
@@ -254,7 +311,7 @@ const onReset = () => { store.reset() }
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  height: 36px;
+  height: 32px;
   border-bottom: 1px solid var(--border-color);
   font-size: 13px;
   color: var(--text-primary);
