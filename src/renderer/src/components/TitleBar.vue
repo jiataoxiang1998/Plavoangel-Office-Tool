@@ -1,7 +1,7 @@
 <template>
   <div class="title-bar" @mousedown="handleMouseDown">
     <div class="title-bar-drag">
-      <span class="title-bar-text">广州办公软件</span>
+      <span class="title-bar-text">Plavoangel</span>
     </div>
     <div class="title-bar-controls">
       <button class="title-btn" @click="minimize" title="最小化">
