@@ -205,26 +205,12 @@ ipcMain.handle('product:generate', async (event, params: { product_folder: strin
   try {
     const { product_folder, output_dir, template_path } = params
 
-    console.log('product:generate called')
-    console.log('product_folder:', product_folder)
-    console.log('output_dir:', output_dir)
-    console.log('template_path:', template_path)
-
     const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
     const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
     const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
 
     const pythonExe = join(pythonDir, 'python.exe')
     const handlerPy = join(scriptsDir, 'product_handler.py')
-
-    console.log('isDev:', isDev)
-    console.log('pythonExe exists:', existsSync(pythonExe))
-    console.log('handlerPy exists:', existsSync(handlerPy))
-    console.log('template_path exists:', existsSync(template_path))
-
-    const name = product_folder.split(/[\\/]/).pop() || ''
-    const outputPath = join(output_dir, `${name}.jpg`)
-    console.log('expected output path:', outputPath)
 
     if (!existsSync(pythonExe)) {
       return { success: false, error: `Python not found: ${pythonExe}` }
@@ -236,6 +222,9 @@ ipcMain.handle('product:generate', async (event, params: { product_folder: strin
       return { success: false, error: `Template not found: ${template_path}` }
     }
 
+    const name = product_folder.split(/[\\/]/).pop() || ''
+    const outputPath = join(output_dir, `${name}.jpg`)
+
     const result = await new Promise<{code:number, stdout:string, stderr:string, path:string}>((resolve, reject) => {
       const py = spawn(pythonExe, [handlerPy, '-i', product_folder, '-o', output_dir, '-t', template_path])
       let stderr = ''
@@ -243,12 +232,8 @@ ipcMain.handle('product:generate', async (event, params: { product_folder: strin
       py.stderr.on('data', (d) => { stderr += d.toString() })
       py.stdout.on('data', (d) => { stdout += d.toString() })
       py.on('close', (code) => {
-        console.log('Product gen stdout:', stdout)
-        console.log('Product gen stderr:', stderr)
-        console.log('code:', code)
         const match = stdout.match(/OK:([^\r\n]+)/)
         const pathFromPy = match ? match[1].trim() : outputPath
-        console.log('path from python:', pathFromPy)
         resolve({ code: code || 0, stdout, stderr, path: pathFromPy })
       })
       py.on('error', reject)
@@ -258,13 +243,10 @@ ipcMain.handle('product:generate', async (event, params: { product_folder: strin
       return { success: false, error: result.stderr || '处理失败' }
     }
 
-    console.log('outputPath exists:', existsSync(result.path))
     if (!existsSync(result.path)) {
-      console.log('WARNING: output file not found, using fallback')
       return { success: true, path: outputPath }
     }
 
-    console.log('returning path:', result.path)
     return { success: true, path: result.path }
   } catch (e) {
     return { success: false, error: String(e) }

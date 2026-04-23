@@ -135,11 +135,6 @@ const loadFolders = async () => {
 
 const onProcess = async () => {
   if (!canProcess.value) return
-  console.log('onProcess started')
-  console.log('inputDir:', store.inputDir)
-  console.log('outputDir:', store.outputDir)
-  console.log('folderItems:', store.folderItems.length)
-  console.log('template:', selectedTemplate.value)
   store.startProcessing()
 
   let doneCount = store.doneNames.length
@@ -152,15 +147,18 @@ const onProcess = async () => {
     try {
       const tpl = await window.electronAPI.getTemplatePath(selectedTemplate.value)
       const r: any = await window.electronAPI.productGen({ product_folder: item.path, output_dir: store.outputDir, template_path: tpl })
-      console.log('productGen result:', r)
       if (r.success) {
         const thumb = await loadThumb(r.path)
-        console.log('thumbnail:', thumb ? thumb.substring(0, 50) : 'empty')
         store.addResult({ name: item.name, path: r.path, thumbnail: thumb })
         store.addDoneName(item.name)
         doneCount++
         store.setCurrent(doneCount)
       }
+    } catch (e) { console.error(e) }
+  }
+
+  store.finishProcessing()
+}
     } catch (e) { console.error(e) }
   }
 
