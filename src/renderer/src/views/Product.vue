@@ -157,12 +157,7 @@ const onProcess = async () => {
     } catch (e) { console.error(e) }
   }
 
-  store.finishProcessing()
-}
-    } catch (e) { console.error(e) }
-  }
-
-  store.finishProcessing()
+store.finishProcessing()
 }
 
 const loadThumb = async (p: string) => {
