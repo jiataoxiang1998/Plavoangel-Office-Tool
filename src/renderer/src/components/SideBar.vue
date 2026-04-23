@@ -5,7 +5,7 @@
         <svg class="collapse-icon" :class="{ rotated: !isGroupCollapsed }" width="14" height="14" viewBox="0 0 14 14">
           <path d="M5 3 L9 7 L5 11" fill="none" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        <span v-if="!isSidebarCollapsed" class="title-text">Plavoangel</span>
+        <span v-if="!isSidebarCollapsed" class="title-text">广州办公软件</span>
       </div>
     </div>
 
