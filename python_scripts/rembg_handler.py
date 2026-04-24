@@ -1,9 +1,26 @@
-from PIL import Image
 import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+from PIL import Image
 import argparse
 import os
-import tempfile
+import glob
 from rembg import remove, new_session
+
+# 检查模型缓存 - 正确路径是 ~/.u2net/
+cache_dir = os.path.join(os.path.expanduser('~'), '.u2net')
+model_files = glob.glob(os.path.join(cache_dir, '*.onnx'), recursive=True) if os.path.exists(cache_dir) else []
+use_cache = len(model_files) > 0
+
+if use_cache:
+    cache_size = sum(os.path.getsize(f) for f in model_files) // 1024 // 1024
+    print(f"CACHE: YES ({len(model_files)} files, {cache_size}MB)")
+else:
+    print("CACHE: NO (will download)")
+
+session = new_session('isnet-general-use')
 
 
 def trim_padding(img, padding=20):
@@ -37,9 +54,10 @@ parser.add_argument('--alpha-matting-erode-size', type=int, default=5)
 parser.add_argument('--post-process-mask', type=int, default=1)
 args = parser.parse_args()
 
-session = new_session('isnet-general-use')
-
+print(f"INPUT: {args.input}")
 img = Image.open(args.input)
+print(f"IMAGE: {img.size} {img.mode}")
+
 output = remove(
     img,
     session=session,
@@ -49,6 +67,8 @@ output = remove(
     alpha_matting_erode_size=args.alpha_matting_erode_size,
     post_process_mask=bool(args.post_process_mask)
 )
+
+output = trim_padding(output, args.padding)
 
 output = trim_padding(output, args.padding)
 
