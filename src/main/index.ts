@@ -1,10 +1,24 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, appendFileSync } from 'fs'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 let mainWindow: BrowserWindow | null = null
+
+function log(...args: any[]) {
+  const msg = new Date().toISOString() + ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  console.log(msg)
+  try {
+    const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+    const logDir = isDev ? join(__dirname, '../../resources') : process.resourcesPath
+    if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true })
+    const logPath = join(logDir, 'app.log')
+    appendFileSync(logPath, msg + '\n')
+  } catch (e) {
+    console.error('log write error:', e)
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -21,6 +35,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  log('App started, resourcesPath:', process.resourcesPath)
   electronApp.setAppUserModelId('com.officetool.app')
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
   createWindow()
@@ -81,14 +96,34 @@ ipcMain.handle('fs:readFileBase64', async (_, filePath: string) => {
 ipcMain.handle('rembg:process', async (_, params: { input_path: string; output_path: string }) => {
   try {
     const { input_path, output_path } = params
-    process.env.IMGLY_USE_LOCAL_MODELS = 'true'
-    const imageBuffer = readFileSync(input_path)
+    log('rembg:process called, input:', input_path)
+    log('IMGLY_USE_LOCAL_MODELS:', process.env.IMGLY_USE_LOCAL_MODELS)
+    
     const removeBackground = (await import('@imgly/background-removal')).default
-    const output = await removeBackground(imageBuffer)
+    log('background-removal module loaded, starting removal...')
+    
+    const imageBuffer = readFileSync(input_path)
+    log('input file read, size:', imageBuffer.length)
+    
+    const output = await removeBackground(imageBuffer, {
+      debug: true,
+      progress: (key: string, current: number, total: number) => {
+        if (key.includes('model') || key.includes('wasm')) {
+          log(`download: ${key} ${Math.round(current/1024/1024*100)/100}MB / ${Math.round(total/1024/1024*100)/100}MB`)
+        }
+      }
+    })
+    
     const arrayBuffer = await output.arrayBuffer()
+    log('rembg:process output generated, size:', arrayBuffer.byteLength)
+    
     writeFileSync(output_path, Buffer.from(arrayBuffer))
+    log('rembg:process success, output:', output_path)
     return { success: true, path: output_path }
-  } catch (e) { return { success: false, error: (e as Error).message } }
+  } catch (e) { 
+    log('rembg:process error:', e)
+    return { success: false, error: (e as Error).message } 
+  }
 })
 
 ipcMain.handle('rembg:batch', async (event, params: {
@@ -113,32 +148,43 @@ ipcMain.handle('rembg:batch', async (event, params: {
       postProcessMask = true
     } = params
 
-    console.log('Output dir:', output_dir)
-    console.log('Input paths:', input_paths)
-    if (!existsSync(output_dir)) mkdirSync(output_dir, { recursive: true })
-
+    log('rembg:batch called, files:', input_paths.length, 'output_dir:', output_dir)
+    
     const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
     const pythonDir = isDev ? join(__dirname, '../../python') : join(process.resourcesPath, 'python')
     const scriptsDir = isDev ? join(__dirname, '../../python_scripts') : join(process.resourcesPath, 'python_scripts')
-    
     const pythonExe = join(pythonDir, 'python.exe')
     const handlerPy = join(scriptsDir, 'rembg_handler.py')
+    
+    log('isDev:', isDev, 'pythonDir:', pythonDir, 'scriptsDir:', scriptsDir)
+    
+    if (!existsSync(output_dir)) mkdirSync(output_dir, { recursive: true })
+    if (!existsSync(pythonExe)) {
+      log('Python not found:', pythonExe)
+      return { success: false, error: 'Python not found at ' + pythonExe }
+    }
+    if (!existsSync(handlerPy)) {
+      log('Handler not found:', handlerPy)
+      return { success: false, error: 'Handler script not found at ' + handlerPy }
+    }
 
-    console.log('isDev:', isDev)
-    console.log('pythonDir:', pythonDir)
-    console.log('scriptsDir:', scriptsDir)
-
+    log('Python executable:', pythonExe)
+    log('Handler script:', handlerPy)
+    log('Starting batch process for', input_paths.length, 'files')
+    
     const results: string[] = []
-    console.log('Starting batch process for', input_paths.length, 'files')
-    console.log('Output dir:', output_dir)
     for (let i = 0; i < input_paths.length; i++) {
       const input_path = input_paths[i]
       const basename = input_path.split(/[\\/]/).pop() || ''
       const nameWithoutExt = basename.replace(/\.[^.]+$/, '')
       const output_path = join(output_dir, nameWithoutExt + '.png')
 
+      log('Processing file', i + 1, '/', input_paths.length, ':', basename)
+
       const args = [
-        handlerPy, '-u', input_path, '-o', output_path,
+        handlerPy,
+        '-u', input_path,
+        '-o', output_path,
         '--padding', String(padding),
         '--alpha-matting', alphaMatting ? '1' : '0',
         '--alpha-matting-foreground-threshold', String(alphaMattingForegroundThreshold),
@@ -147,26 +193,44 @@ ipcMain.handle('rembg:batch', async (event, params: {
         '--post-process-mask', postProcessMask ? '1' : '0'
       ]
 
+      log('Python args:', args.join(' '))
+
       await new Promise<void>((resolve, reject) => {
-        const py = spawn(pythonExe, args)
+        const py = spawn(pythonExe, args, { windowsHide: true })
         let stderr = ''
         let stdout = ''
-        py.stderr.on('data', (d) => { stderr += d.toString() })
-        py.stdout.on('data', (d) => { stdout += d.toString() })
-        py.on('close', (code) => {
-          if (code === 0) resolve()
-          else reject(new Error(stderr || '处理失败'))
+        py.stdout.on('data', (d) => { 
+          const msg = d.toString().trim()
+          if (msg) log('Python stdout:', msg)
+          stdout += d.toString() 
         })
-        py.on('error', reject)
+        py.stderr.on('data', (d) => { 
+          const msg = d.toString().trim()
+          if (msg) log('Python stderr:', msg)
+          stderr += d.toString() 
+        })
+        py.on('close', (code) => {
+          if (code === 0) {
+            log('File processed successfully:', output_path)
+            resolve()
+          } else {
+            log('File processing failed, code:', code, 'stderr:', stderr)
+            reject(new Error(stderr || '处理失败'))
+          }
+        })
+        py.on('error', (err) => {
+          log('Python spawn error:', err.message)
+          reject(err)
+        })
       })
 
       event.sender.send('rembg:progress', { current: i + 1, total: input_paths.length, path: output_path })
-      console.log('Progress sent:', i + 1, output_path)
       results.push(output_path)
     }
-    console.log('Batch process complete, results:', results.length)
+    log('Batch process complete, results:', results.length)
     return { success: true, paths: results }
   } catch (e) {
+    log('rembg:batch error:', e)
     return { success: false, error: String(e) }
   }
 })
@@ -537,5 +601,20 @@ except Exception as e:
     return { success: false, error: result.stderr || '生成失败' }
   } catch (e) {
     return { success: false, error: String(e) }
+  }
+})
+
+function getLogPath(): string {
+  const isDev = process.env.NODE_ENV === 'development' || !process.resourcesPath || process.resourcesPath.includes('electron')
+  return isDev ? join(__dirname, '../../resources/app.log') : join(process.resourcesPath, 'app.log')
+}
+
+ipcMain.handle('log:read', async () => {
+  try {
+    const logPath = getLogPath()
+    if (!existsSync(logPath)) return { success: true, content: '' }
+    return { success: true, content: readFileSync(logPath, 'utf-8') }
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
   }
 })
