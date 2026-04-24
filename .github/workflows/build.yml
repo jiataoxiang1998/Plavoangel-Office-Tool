@@ -31,11 +31,8 @@ jobs:
       - name: Install Python packages
         run: |
           python\python.exe -m pip install --upgrade pip wheel setuptools
-          python\python.exe -m pip install pillow psd-tools pandas openpyxl rembg onnxruntime
-
-      - name: Verify packages
-        run: |
-          python\python.exe -c "import PIL; import psd_tools; import rembg; print('All packages OK')"
+          python\python.exe -m pip install pillow psd-tools pandas openpyxl "rembg[cpu]" "onnxruntime>=1.23.2,<2.0.0"
+          python\python.exe -c "import PIL; import psd_tools; import rembg; import onnxruntime; print('All packages OK')"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
