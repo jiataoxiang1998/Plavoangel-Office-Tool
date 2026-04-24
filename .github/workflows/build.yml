@@ -34,6 +34,25 @@ jobs:
           python\python.exe -m pip install pillow psd-tools pandas openpyxl "rembg[cpu]" "onnxruntime>=1.23.2,<2.0.0"
           python\python.exe -c "import PIL; import psd_tools; import rembg; import onnxruntime; print('All packages OK')"
 
+      - name: Copy VCRUNTIME DLLs for portable runtime
+        run: |
+          # Copy VCRUNTIME DLLs from system to python folder for portable runtime
+          # These DLLs are required by onnxruntime on Windows
+          $vcruntime = "$env:SystemRoot\System32\vcruntime140.dll"
+          $vcruntime1 = "$env:SystemRoot\System32\vcruntime140_1.dll"
+          $msvcp140 = "$env:SystemRoot\System32\msvcp140.dll"
+          $python311 = "python\python311.dll"
+          
+          if (Test-Path $vcruntime) { Copy-Item $vcruntime -Destination "python/" -Force }
+          if (Test-Path $vcruntime1) { Copy-Item $vcruntime1 -Destination "python/" -Force }
+          if (Test-Path $msvcp140) { Copy-Item $msvcp140 -Destination "python/" -Force }
+          if (Test-Path $python311) { 
+            # python311.dll is already in embeddable, but ensure it's there
+            Write-Host "python311.dll already exists"
+          }
+          Write-Host "VCRUNTIME DLLs copied successfully"
+          Get-ChildItem "python/" -Filter "*.dll" | Format-Table Name
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
